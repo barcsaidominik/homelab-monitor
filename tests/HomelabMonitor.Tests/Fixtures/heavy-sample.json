@@ -1,0 +1,9 @@
+{ "schema": "homelab.heavy/1", "runId": "eac3cd32-0000-4000-8000-000000000001", "startedAt": "2026-11-02T08:26:54.5743890Z", "finishedAt": "2026-11-02T08:27:21.0289522Z", "host": "HOMESERVER", "uptimeMinutes": 802,
+  "results": [
+    { "checkId": "backup.daily", "status": "OK", "messages": [] },
+    { "checkId": "remote.access", "status": "ERROR", "messages": ["Remote access: failed"] },
+    { "checkId": "disk.free.D", "status": "WARN", "messages": ["D: 40 GB free"] },
+    { "checkId": "proc.media", "status": "OK", "messages": [] },
+    { "checkId": "not.in.catalog", "status": "ERROR", "messages": ["x"] },
+    { "checkId": "fw.profile", "status": "UNKNOWN", "messages": [] }
+  ] }
