@@ -158,7 +158,17 @@ public sealed class NotificationTests : IDisposable
         Assert.Empty(Box());
         _muted.Clear(); // end of the window
         Step(Err("http.requests"));
-        Assert.Single(Box("open"));
+        var m = Assert.Single(Box("open"));
+        Assert.Contains("(for 30 min)", m.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ImmediateOpenMessage_HasNoZeroDuration()
+    {
+        Step(Err("http.media"));
+        Step(Err("http.media"));
+        var m = Assert.Single(Box("open"));
+        Assert.DoesNotContain("(for", m.Text, StringComparison.Ordinal);
     }
 
     [Fact]

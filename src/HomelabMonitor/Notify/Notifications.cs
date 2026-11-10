@@ -68,7 +68,10 @@ public sealed class NotificationPlanner(MonitorCatalog catalog, SqliteStore stor
 
     private int EnqueueOpen(IncidentRecord inc, NotifyRuleOptions rule, IReadOnlyList<string> names, TimeSpan elapsed, DateTimeOffset now)
     {
-        var text = $"{options.Prefix} CRITICAL: {Body(rule, names)}{(rule.WithDuration ? $" (for {FormatDuration(elapsed)})" : "")}. {inc.Id}";
+        // The duration only means something when the first message is late (e.g. at the end of a maintenance window);
+        // right after the incident opens it would always read "for 0 min".
+        var withDuration = rule.WithDuration && elapsed >= TimeSpan.FromMinutes(1);
+        var text = $"{options.Prefix} CRITICAL: {Body(rule, names)}{(withDuration ? $" (for {FormatDuration(elapsed)})" : "")}. {inc.Id}";
         var windowStart = now - TimeSpan.FromMinutes(options.StormWindowMinutes);
         var recent = store.CountOutbox("open", windowStart);
         if (recent < options.StormCount)

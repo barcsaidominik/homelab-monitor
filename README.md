@@ -101,7 +101,7 @@ down the CRIT, rule-bearing services sends **one** message that names the affect
 | `Body` | Message text; `{names}` is replaced with the affected display names |
 | `ReminderAfterHours` | One reminder if the incident is still open after this many hours |
 | `Daily` | A reminder every 24 hours instead (e.g. backups, disk space) |
-| `WithDuration` | Append "for 25 min" to the first message |
+| `WithDuration` | Append "for 25 min" to the first message when it goes out late (e.g. at the end of a maintenance window) |
 
 Safeguards: dedupe key `IncidentId:kind`; at most `RatePerHour` (6) messages per hour; more than `StormCount` (3)
 critical opens within `StormWindowMinutes` (10) become a single digest; exponential retry (1, 2, 4… up to 60 min);
