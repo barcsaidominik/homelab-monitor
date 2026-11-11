@@ -149,6 +149,40 @@ public sealed class NotificationTests : IDisposable
     }
 
     [Fact]
+    public void ChildNotifiedBeforeParent_GetsOneMovedMessage_AndOnlyTheParentRecovers()
+    {
+        Step(Err("http.media"));
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Step(Err("dns.local"), Err("http.media"));
+        Step(Err("dns.local"), Err("http.media")); // planning again must not duplicate
+
+        Assert.Equal("INC-20261102-001,INC-20261102-002", string.Join(',', Box("open").Select(m => m.IncidentId)));
+        var moved = Assert.Single(Box("moved"));
+        Assert.Equal("INC-20261102-001", moved.IncidentId);
+        Assert.Equal("default", moved.Priority);
+        Assert.Contains("now tracked under INC-20261102-002", moved.Text, StringComparison.Ordinal);
+        Assert.EndsWith("INC-20261102-001", moved.Text, StringComparison.Ordinal);
+
+        _time.Advance(TimeSpan.FromMinutes(10));
+        Step(Ok("dns.local"), Ok("http.media"));
+        var resolved = Assert.Single(Box("resolved"));
+        Assert.Equal("INC-20261102-002", resolved.IncidentId);
+    }
+
+    [Fact]
+    public void SuppressedChild_WithoutDeliverableOpenMessage_GetsNoMovedMessage()
+    {
+        Step(Err("http.media"));
+        _store.ExpirePending(_time.GetUtcNow().AddMinutes(1)); // the child's open message expired unsent
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Step(Err("dns.local"), Err("http.media"));
+        Assert.Empty(Box("moved"));
+
+        Step(Err("http.requests"), Err("dns.local")); // suppressed before it ever opened: no incident of its own
+        Assert.Empty(Box("moved"));
+    }
+
+    [Fact]
     public void Maintenance_NoOpenMessage_ButCreatedWhenWindowEndsAndStillFailing()
     {
         _muted.Add("http.requests");

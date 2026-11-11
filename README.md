@@ -109,6 +109,9 @@ unsent messages expire after `MaxAgeMinutes` (120); muted or flapping incidents 
 still failing when a maintenance window ends is notified in the next cycle. Messages contain only names, severity,
 duration and the incident id, never addresses.
 
+Delivery is at-least-once within `MaxAgeMinutes`: a message is marked sent only after ntfy accepted it, so a crash
+between the two can send it again; a message that could not be delivered before it expires is dropped and logged.
+
 **Maintenance**: scheduled weekly windows (local time, `[start, end)`), a grace period after boot, and manual mutes in
 `<DataDir>\mute.json` (exact id, `prefix*` or `*`, with an expiry). There is deliberately no write endpoint on the network.
 
@@ -180,6 +183,8 @@ arrived for `StaleHours`.
 dotnet test
 # appsettings.Example.json with a local data directory; the example probes point to fictional hosts and will fail
 dotnet run --project src/HomelabMonitor --no-launch-profile -- --environment Example --Monitor:DataDir=.data
+# the same without any network probe (engine, API, reports only); then open http://127.0.0.1:5556/api/homepage/summary
+dotnet run --project src/HomelabMonitor --no-launch-profile -- --environment Example --Monitor:DataDir=.data --Probes:Enabled=false
 ```
 
 The tests use temporary directories, fake clocks and fake network handlers: they never touch the network, a real
@@ -223,6 +228,9 @@ Put the site configuration in `appsettings.Production.json` next to the binary; 
 - Thresholds are counts of consecutive results, not time windows; with a 1-minute cycle that is the same thing, with
   heavy checks every few hours an incident opens later.
 - Only ntfy is implemented as a notification channel (behind `INotificationSender`).
+- Suppression gives one message per problem only when a parent fails no later than its children. If a child opens and
+  notifies first, its incident is taken over when the parent opens: the child gets one closing "now tracked under
+  INC-…" message instead of a "Recovered" one, and the parent sends its own message as well.
 
 ## AI disclosure
 

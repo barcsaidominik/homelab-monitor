@@ -352,7 +352,7 @@ public sealed class SqliteStore
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
             SELECT id,check_key,check_id,severity,state,opened_at,resolved_at,affected,message FROM incidents
-            WHERE state IN ('OPEN','RECOVERING','FLAPPING') OR (state='RESOLVED' AND resolved_at>=$s) ORDER BY opened_at
+            WHERE state IN ('OPEN','RECOVERING','FLAPPING') OR (state IN ('RESOLVED','SUPPRESSED') AND resolved_at>=$s) ORDER BY opened_at
             """;
         cmd.Parameters.AddWithValue("$s", Ts(resolvedSince));
         return ReadIncidents(cmd);
@@ -407,6 +407,13 @@ public sealed class SqliteStore
     {
         using var c = Open();
         return Scalar(c, "SELECT 1 FROM outbox WHERE dedupe_key=$k", ("$k", key)) is not null;
+    }
+
+    /// <summary>The status of the outbox row with this dedupe key, or null if there is none.</summary>
+    public string? OutboxStatus(string key)
+    {
+        using var c = Open();
+        return Scalar(c, "SELECT status FROM outbox WHERE dedupe_key=$k", ("$k", key)) as string;
     }
 
     /// <summary>Once per dedupe key: false if it already exists.</summary>

@@ -18,8 +18,15 @@ public sealed class NotificationPlanner(MonitorCatalog catalog, SqliteStore stor
     {
         var now = time.GetUtcNow();
         var created = 0;
-        foreach (var inc in store.GetIncidentsForPlanning(now.AddDays(-7)))
+        var incidents = store.GetIncidentsForPlanning(now.AddDays(-7));
+        foreach (var inc in incidents)
         {
+            if (inc.State == CheckState.Suppressed)
+            {
+                created += PlanMoved(inc, incidents, isMuted, now);
+                continue;
+            }
+
             var subject = Resolve(inc);
             if (subject is null)
             {
@@ -96,6 +103,28 @@ public sealed class NotificationPlanner(MonitorCatalog catalog, SqliteStore stor
 
         created += store.TryEnqueue($"{inc.Id}:open", inc.Id, "open", "urgent", "rotating_light", text, now, status: "merged") ? 1 : 0;
         return created;
+    }
+
+    /// <summary>
+    /// An incident that already notified and was then taken over by a parent's incident gets one closing message, so every
+    /// "CRITICAL" message has a follow-up. Without its own open message (or if that expired unsent) there is nothing to close.
+    /// </summary>
+    private int PlanMoved(IncidentRecord inc, IReadOnlyList<IncidentRecord> incidents, Func<string, bool> isMuted, DateTimeOffset now)
+    {
+        var openStatus = store.OutboxStatus($"{inc.Id}:open");
+        if (openStatus is null or "expired" || isMuted(inc.CheckId))
+        {
+            return 0;
+        }
+
+        var names = Resolve(inc)?.Names ?? [catalog.Get(inc.CheckId).DisplayName];
+        var owner = incidents.FirstOrDefault(o => o.State != CheckState.Suppressed && o.State != CheckState.Resolved
+            && o.Affected.Contains(inc.CheckKey, StringComparer.Ordinal));
+        var target = owner is null
+            ? "the incident of a service it depends on"
+            : $"{owner.Id} ({catalog.Get(owner.CheckId).DisplayName})";
+        var text = $"{options.Prefix} Update: {string.Join(", ", names)} is now tracked under {target}; no separate recovery message. {inc.Id}";
+        return store.TryEnqueue($"{inc.Id}:moved", inc.Id, "moved", "default", "link", text, now) ? 1 : 0;
     }
 
     private static string? ReminderKey(string incidentId, NotifyRuleOptions rule, TimeSpan elapsed)
